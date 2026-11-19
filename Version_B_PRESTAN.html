@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CPR AR Trainer - Research Edition | Prototype B</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <script src="vendor/aframe.min.js"></script>
+  <script src="vendor/aframe-ar.js"></script>
+  <link rel="stylesheet" href="prestan-ui.css">
+  <style>
+    :root { --primary-gradient:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%); --accent:#00f2fe; --emergency-red:#ff4b2b; --success-green:#00ff88; --glass:rgba(255,255,255,.95); }
+    body { margin:0; font-family:'Segoe UI',sans-serif; background:#000; overflow:hidden; touch-action:none; }
+    button { touch-action:manipulation; }
+    .emergency-btn { position:fixed; top:20px; right:20px; z-index:5000; background:var(--emergency-red); color:white; border:none; padding:12px 20px; border-radius:12px; font-weight:bold; box-shadow:0 0 15px rgba(255,75,43,.6); cursor:pointer; display:none; animation:pulse 1.5s infinite; pointer-events:auto; }
+    @keyframes pulse { 0%{transform:scale(1)}50%{transform:scale(1.05)}100%{transform:scale(1)} }
+    .mute-btn,.minimalist-btn { position:fixed; left:20px; z-index:5000; background:rgba(0,0,0,.6); color:white; border:1px solid rgba(255,255,255,.3); width:45px; height:45px; border-radius:50%; font-size:1.2rem; cursor:pointer; display:none; backdrop-filter:blur(10px); pointer-events:auto; }
+    .mute-btn { top:20px; } .minimalist-btn { top:75px; }
+    .overlay-page { position:fixed; inset:0; background:var(--primary-gradient); z-index:3000; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; transition:.8s ease-in-out; pointer-events:auto; }
+    .glass-card { background:var(--glass); backdrop-filter:blur(20px); border-radius:35px; padding:35px 30px; width:85%; max-width:450px; border:1px solid rgba(255,255,255,.8); box-shadow:0 15px 35px rgba(0,10,30,.1); position:relative; color:#2c3e50; }
+    .glass-card h1 { color:#1e3c72; margin-bottom:5px; font-size:1.8rem; } .glass-card p.subtitle { color:#7f8c8d; margin-top:0; font-weight:500; margin-bottom:20px; }
+    .uni-logo { position:absolute; top:20px; left:20px; width:50px; height:auto; }
+    .how-to-use { text-align:left; background:#f4f7f6; padding:20px; border-radius:20px; margin:20px 0; font-size:1rem; line-height:1.6; color:#34495e; border:1px solid #e1e8ed; }
+    .how-to-use p { margin:8px 0; } .how-to-use b { color:#0072ff; }
+    .participant-box { width:100%; box-sizing:border-box; padding:12px; margin:10px 0 4px; border:1px solid #d0d7de; border-radius:12px; font-size:1rem; }
+    .btn-main { background:linear-gradient(135deg,#ff416c 0%,#ff4b2b 100%); color:#fff; padding:18px 50px; border:none; border-radius:50px; font-weight:bold; font-size:1.2rem; cursor:pointer; box-shadow:0 10px 20px rgba(255,75,43,.3); }
+    #ar-ui { position:fixed; inset:0; z-index:1000; display:none; pointer-events:none; }
+    .progress-container { position:absolute; top:30px; left:50%; transform:translateX(-50%); width:85%; height:8px; background:rgba(255,255,255,.2); border-radius:10px; }
+    #progress-bar { width:7.69%; height:100%; background:var(--accent); border-radius:10px; transition:.8s ease; }
+    .instruction-panel { position:absolute; bottom:40px; left:50%; transform:translateX(-50%); width:90%; pointer-events:auto; }
+    .info-box { background:rgba(0,0,0,.85); color:white; padding:20px; border-radius:25px; border-left:6px solid var(--accent); margin-bottom:20px; }
+    .controls { display:flex; gap:12px; }
+    .btn-next,#start-cpr-btn,#compression-tap-btn { flex:3; padding:20px; border-radius:50px; border:none; font-weight:bold; font-size:1.2rem; cursor:pointer; }
+    .btn-next { color:white; background:var(--emergency-red); } #start-cpr-btn { background:var(--success-green); color:#000; display:none; }
+    .btn-reset { flex:1; background:#333; color:#fff; border-radius:50px; border:1px solid #555; font-weight:bold; cursor:pointer; }
+    #cpr-counter { font-size:4.2rem; color:#ffeb3b; font-weight:900; display:none; text-shadow:0 0 24px rgba(255,235,59,.55); text-align:center; margin-bottom:10px; line-height:1; }
+    #cpr-counter.compression-complete { font-size:1.65rem; color:#fff; text-shadow:none; line-height:1.25; margin:0 0 10px; }
+    #short-title { font-size:1.6rem; font-weight:bold; margin-top:5px; color:white; letter-spacing:1px; }
+    #detail-text { display:none; margin-top:8px; font-size:.95rem; line-height:1.4; color:#fff; opacity:.95; }
+    #compression-guide { display:none; margin:0 0 10px; padding:8px 12px; border-radius:14px; background:rgba(0,0,0,.62); color:#fff; text-align:center; line-height:1.25; }
+    #compression-guide .compression-target { font-weight:800; font-size:.9rem; letter-spacing:.25px; }
+    #compression-guide .compression-note { display:none; }
+    #compression-tap-btn { display:none; min-height:74px; background:#ffeb3b; color:#111; }
+    #compression-feedback { display:none; margin:0 0 10px; padding:9px 12px; border-radius:14px; background:rgba(0,0,0,.72); color:#fff; font-weight:900; text-align:center; letter-spacing:.35px; }
+    .compression-mode .info-box { display:none; }
+    .compression-mode .instruction-panel { bottom:28px; }
+    .compression-mode .btn-reset { flex:0 0 82px; border-radius:24px; font-size:.78rem; }
+    .compression-mode #compression-tap-btn { flex:1; }
+    .compression-complete-mode #compression-guide { display:none !important; }
+    .compression-complete-mode .info-box { display:none; }
+    #finish-page { display:none; opacity:0; } .download-btn { margin-top:12px; background:#333; color:white; border:none; padding:12px 22px; border-radius:50px; cursor:pointer; }
+
+    /* iPhone/Safari: landing screen can scroll; START SESSION stays visible. */
+    #landing-page {
+      justify-content: flex-start !important;
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y !important;
+      overscroll-behavior-y: contain;
+      padding: 16px 0 calc(115px + env(safe-area-inset-bottom, 0px)) !important;
+      box-sizing: border-box;
+    }
+    #landing-page .glass-card {
+      width: 90%;
+      max-width: 450px;
+      margin: 10px auto 24px !important;
+      flex: 0 0 auto;
+      box-sizing: border-box;
+    }
+    @media (max-width: 700px) {
+      #landing-page .glass-card { padding: 24px 18px; }
+      #landing-page .btn-main {
+        position: fixed;
+        left: 50%;
+        bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+        transform: translateX(-50%);
+        width: min(86vw, 370px);
+        min-height: 56px;
+        z-index: 3100;
+        box-shadow: 0 0 0 6px rgba(0,0,0,0.12), 0 4px 18px rgba(0,0,0,0.25);
+        white-space: nowrap;
+      }
+    }
+
+    /* Visible, touch-friendly finish action during physical CPR on iPhone. */
+    #physical-done-btn {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 68px;
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 10px;
+      background: #148552;
+      color: #fff;
+      font-weight: 800;
+      font-size: clamp(0.85rem, 3.6vw, 1.05rem);
+      line-height: 1.2;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    @media (max-width: 700px) {
+      .controls { align-items: stretch; }
+      .instruction-panel { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+      #physical-done-btn { flex: 1 1 72%; }
+      .btn-reset { flex: 0 0 23%; }
+    }
+    #marker-status {display:none;position:fixed;z-index:2200;top:calc(8px + env(safe-area-inset-top, 0px));left:50%;transform:translateX(-50%);max-width:88vw;padding:8px 14px;background:rgba(0,0,0,.78);border:1px solid #aaa;border-radius:12px;color:#fff;font:600 12px system-ui,sans-serif;pointer-events:none;text-align:center;}
+  </style>
+</head>
+<body>
+  <button id="sos-btn" class="emergency-btn" onclick="logEvent('call_112_pressed'); window.location.href='tel:112'">CALL 112 📞</button>
+  <button id="mute-btn" class="mute-btn" onclick="toggleMute()">🔊</button>
+  <button id="minimalist-btn" class="minimalist-btn" onclick="toggleMinimalist()">👁️</button>
+
+  <div id="landing-page" class="overlay-page">
+    <div class="glass-card">
+      <img src="HSA.png" class="uni-logo" alt="Logo">
+      <h1>CPR AR MISSION</h1>
+      <p class="subtitle">Interactive Training</p>
+      <input id="participant-id" class="participant-box" type="text" placeholder="Participant ID (e.g., P001)" autocomplete="off">
+      <div class="how-to-use">
+        <p>📷 <b>Marker:</b> Place the HIRO marker at the predefined marked position beside the CPR manikin, then aim the camera at it.</p>
+        <p>🔊 <b>Audio:</b> Full CPR instructions are spoken for the same 13 steps. Audio can be muted.</p>
+        <p>🫀 <b>Physical feedback:</b> The original PRESTAN LEDs update automatically during Step 10. Press START COMPRESSIONS to begin your physical set and FINISH PHYSICAL SET when completed. Exact compression count and BPM are not automatically measured.</p>
+        <p>⏱️ <b>Metronome:</b> A pacing cue at 110/min (not a measured physical rate). The system does not measure compression depth, force, recoil, or hand placement.</p>
+        <p>👁️ <b>Display control:</b> The minimalist control can hide progress/step indicators.</p>
+      </div>
+      <p class="prestan-mode-select"><strong>Physical PRESTAN mode:</strong> During Step 10 press START COMPRESSIONS, perform 30 chest compressions on the manikin, then press FINISH PHYSICAL SET. The PRESTAN LEDs provide live monitor status; the system does not count individual compressions.</p>
+      <button class="btn-main" onclick="initExperience()">START SESSION</button>
+    </div>
+  </div>
+
+  <div id="finish-page" class="overlay-page">
+    <div class="glass-card">
+      <h1 style="color:#27ae60;">MISSION COMPLETE</h1>
+      <p style="margin-bottom:18px;">The CPR training sequence is complete.</p>
+      <button class="btn-main" onclick="downloadStudyData()">DOWNLOAD DATA</button>
+      <button class="download-btn" onclick="restartToParticipantPage()">RESTART</button>
+    </div>
+  </div>
+
+  <div id="marker-status" aria-live="polite">MARKER: SEARCHING FOR HIRO</div>
+  <div id="ar-ui">
+    <!-- Shared hardware feedback: original PRESTAN LEDs, NOT a compression counter -->
+    <div id="prestan-panel" style="display:none" role="status" aria-label="Live PRESTAN LED feedback">
+      <div class="prestan-header"><strong>PRESTAN · ORIGINAL LEDs</strong><span id="prestan-connection">WAITING</span></div>
+      <div class="prestan-leds">
+        <div class="prestan-led" id="prestan-red">RED · OFF</div>
+        <div class="prestan-led" id="prestan-yellow">YELLOW · OFF</div>
+        <div class="prestan-led" id="prestan-green-left">GREEN LEFT · OFF</div>
+        <div class="prestan-led" id="prestan-green-right">GREEN RIGHT · OFF</div>
+      </div>
+      <span id="prestan-note">Original LED states only; no automatic compression count, BPM, depth or force.</span>
+    </div>
+    <div class="progress-container"><div id="progress-bar"></div></div>
+    <div class="instruction-panel">
+      <div id="cpr-counter">0 / 30</div>
+      <div id="compression-guide">
+        <div class="compression-target">TARGET: 100–120/min · 5–6 cm · FULL RECOIL</div>
+        <div class="compression-note">Tap once per simulated compression.</div>
+      </div>
+      <div id="compression-feedback">FIND THE RHYTHM</div>
+      <div class="info-box">
+        <small id="step-num" style="color:var(--accent);font-weight:bold;">STEP 1 OF 13</small>
+        <div id="short-title">AREA SAFE</div>
+        <div id="detail-text">Make sure the area is safe before approaching the person.</div>
+      </div>
+      <div class="controls">
+        <button class="btn-reset" onclick="safeReset()">RESET</button>
+        <button id="start-cpr-btn" onclick="startCPR()">START COMPRESSIONS</button>
+        <button id="compression-tap-btn" type="button" onclick="registerCompression()">TAP COMPRESSION</button>
+        <button id="physical-done-btn" type="button" onclick="finishPhysicalCompressionSet()" style="display:none">FINISH PHYSICAL SET</button>
+        <button id="next-btn-text" class="btn-next" onclick="nextStep()">CONTINUE →</button>
+      </div>
+    </div>
+  </div>
+
+  <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" vr-mode-ui="enabled:false">
+    <a-assets><img id="cpr-hands" src="hands.png"></a-assets>
+    <a-marker preset="hiro" smooth="true" smoothCount="10" smoothTolerance="0.02" smoothThreshold="5">
+      <a-entity id="group1"></a-entity>
+      <a-entity id="group2" visible="false"></a-entity>
+      <a-entity id="group3" visible="false"><a-cone color="#00f2fe" radius-bottom="0.2" height="0.6" position="-2.0 1.5 -0.5" rotation="180 0 0"></a-cone></a-entity>
+      <a-entity id="group4" visible="false"><a-cone color="#00f2fe" radius-bottom="0.2" height="0.6" position="-2.0 1.5 -1" rotation="180 0 0"></a-cone></a-entity>
+      <a-entity id="group5" visible="false"><a-cone color="#00f2fe" radius-bottom="0.2" height="0.6" position="-2.0 1.5 -0.8" rotation="180 0 0"></a-cone></a-entity>
+      <a-entity id="group6" visible="false"><a-cone color="#00f2fe" radius-bottom="0.2" height="0.6" position="-2.0 1.4 -0.6" rotation="180 0 0"></a-cone></a-entity>
+      <a-entity id="group7" visible="false"><a-cone color="#00f2fe" radius-bottom="0.2" height="0.6" position="-2.0 1.5 -0.5" rotation="180 0 0"></a-cone></a-entity>
+      <a-entity id="group8" visible="false"><a-cone color="#00f2fe" radius-bottom="0.2" height="0.6" position="-2.0 1.4 0" rotation="180 0 0"></a-cone></a-entity>
+      <a-entity id="group9" visible="false"><a-cone color="#00f2fe" radius-bottom="0.2" height="0.6" position="-2.0 1.5 0" rotation="180 0 0"></a-cone></a-entity>
+      <a-entity id="group10" visible="false">
+        <a-image id="hand-image" src="#cpr-hands" position="-2.0 1.5 0" width="1.8" height="1.8" rotation="-90 0 0" animation="property:position; from:-2.0 1.5 0; to:-2.0 1.1 0; dur:272.5; dir:alternate; loop:true; easing:easeInOutQuad; enabled:false"></a-image>
+        <a-ring id="cpr-ring" color="#00f2fe" radius-inner="0.35" radius-outer="0.45" position="-2.0 1.05 0" rotation="-90 0 0"></a-ring>
+      </a-entity>
+      <a-entity id="group11" visible="false"><a-cone color="#00f2fe" radius-bottom="0.2" height="0.6" position="-2.0 1.5 -1" rotation="180 0 0"></a-cone></a-entity>
+      <a-entity id="group12" visible="false"><a-cone color="#00f2fe" radius-bottom="0.2" height="0.6" position="-2.0 1.6 -1" rotation="180 0 0"></a-cone></a-entity>
+      <a-entity id="group13" visible="false"><a-cone color="#00f2fe" radius-bottom="0.2" height="0.6" position="-2.0 1.6 -1" rotation="180 0 0"></a-cone></a-entity>
+    </a-marker>
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <script>
+    document.addEventListener('dblclick', e => e.preventDefault(), {passive:false});
+    document.addEventListener('gesturestart', e => e.preventDefault());
+
+    let currentStep = 1;
+    let count = 0;
+    let isMuted = false;
+    let isMinimalist = false;
+    let isMarkerFound = false;
+    let audioCtx = null;
+    let metronomeTimer = null;
+    let compressionActive = false;
+    // Both experimental variants default to the SAME physical-manikin protocol.
+    // Only researchers can invoke the original fallback with ?mode=manual.
+    let physicalMode = new URLSearchParams(location.search).get('mode') !== 'manual';
+    let physicalSetStartedAtMs = null;
+    let compressionTimestamps = [];
+    let compressionIntervals = [];
+    const METRONOME_RATE = 110;
+    const METRONOME_INTERVAL = 60000 / METRONOME_RATE;
+    const synth = window.speechSynthesis;
+
+      const stepsText = [
+        'Make sure the area is safe before approaching the person.',
+        "Call out loudly and ask, 'Are you okay?'",
+        "Gently tap the person's shoulders to check for a response. If there is no response, activate emergency help by calling 112 and arrange for an AED if available.",
+        "Place one hand on the person's forehead to begin opening the airway.",
+        'Lift the chin gently using a head-tilt, chin-lift manoeuvre.',
+        'Look at the chest for movement.',
+        'Check for normal breathing for no more than 10 seconds. If the person is unresponsive and is not breathing normally after a sudden collapse, this may indicate cardiac arrest and the need for CPR.',
+        'Place the heel of one hand on the centre of the chest.',
+        'Place the other hand on top and position yourself over the chest.',
+        'Once the need for CPR is confirmed, start chest compressions within a maximum of 10 seconds. Push hard and fast in the centre of the chest: perform 30 chest compressions at a rate of 100–120 per minute. Compress the chest about 5–6 cm, allow full recoil after each compression, and minimize interruptions.',
+        'Tilt the head back again to open the airway before giving rescue breaths.',
+        'Pinch the nose closed.',
+        'Give 2 rescue breaths, about 1 second each, watching for the chest to rise.'
+      ];
+
+      const shortTitles = [
+        "AREA SAFE","CALL OUT","CHECK RESPONSE","HAND ON FOREHEAD","LIFT CHIN",
+        "CHEST MOVEMENT","CHECK BREATHING","HAND ON CHEST","HAND ON TOP",
+        "30 COMPRESSIONS","TILT HEAD","CLOSE NOSE","2 RESCUE BREATHS"
+      ];
+
+
+      const PROTOTYPE = 'B';
+      const TARGET_RATE_MIN = 100;
+      const TARGET_RATE_MAX = 120;
+      const MIN_TAP_GAP = 150;
+
+      let sessionKey = null;
+      let sessionData = null;
+
+      function freshSessionData() {
+        return {
+          schemaVersion: '1.1',
+          participantId: '',
+          prototype: PROTOTYPE,
+          trainingInputMode: physicalMode ? 'physical_prestan_led_feedback' : 'manual_screen_taps',
+          startedAtISO: null,
+          endedAtISO: null,
+          sessionDurationMs: null,
+          completed: false,
+          resetCount: 0,
+          nextPressCount: 0,
+          compressionStartCount: 0,
+          rejectedCompressionTapCount: 0,
+          marker: {
+            foundCount: 0,
+            lostCount: 0,
+            totalLostDurationMs: 0,
+            currentLostStartedAtMs: null
+          },
+          stepDurationsMs: Array(13).fill(0),
+          currentStepStartedAtMs: null,
+          prestan: {
+            source: 'unconfirmed_until_first_sample',
+            connectionMode: 'local_bridge',
+            pollIntervalMs: 150,
+            samplesReceived: 0,
+            stateTransitions: 0,
+            disconnectCount: 0,
+            connectedAtISO: null,
+            lastKnownLEDs: null
+          },
+          prestanMetrics: {
+            method: 'browser_observed_led_states_150ms_polling',
+            observationScope: 'physical_CPR_step_10_only',
+            red: {observedOnActivations: 0, observedOnMs: 0},
+            yellow: {observedOnActivations: 0, observedOnMs: 0},
+            green_left: {observedOnActivations: 0, observedOnMs: 0},
+            green_right: {observedOnActivations: 0, observedOnMs: 0},
+            observedMs: 0,
+            observedSamples: 0,
+            connectionGaps: 0,
+            correctCompressionCount: null,
+            incorrectCompressionCount: null,
+            note: 'LED activations are not individual compressions; ON duration estimated from received samples; red/yellow do not identify counted errors.'
+          },
+          compression: {
+            count: null,
+            countSource: physicalMode ? 'not_measured' : 'on_screen_taps',
+            rateSource: physicalMode ? 'not_measured' : 'on_screen_taps',
+            averageRate: null,
+            targetRatePercent: null,
+            targetRateMin: TARGET_RATE_MIN,
+            targetRateMax: TARGET_RATE_MAX,
+            depthMeasured: false,
+            forceMeasured: false
+          },
+          featureUsage: {
+            muteToggleCount: 0,
+            minimalistToggleCount: 0
+          },
+          events: []
+        };
+      }
+
+      function logEvent(type, details = {}) {
+        if (!sessionData) return;
+        sessionData.events.push({
+          type,
+          atISO: new Date().toISOString(),
+          step: currentStep,
+          ...details
+        });
+        persistSession();
+      }
+
+      function persistSession() {
+        if (!sessionData || !sessionKey) return;
+        localStorage.setItem(sessionKey, JSON.stringify(sessionData));
+      }
+
+      function beginStudySession() {
+        const idInput = document.getElementById('participant-id');
+        const participantId = (idInput.value || '').trim();
+        if (!participantId) {
+          alert('Please enter the participant ID before starting.');
+          idInput.focus();
+          return false;
+        }
+
+        sessionStorage.setItem('cprParticipantId', participantId);
+        sessionData = freshSessionData();
+        sessionData.participantId = participantId;
+        sessionData.startedAtISO = new Date().toISOString();
+        sessionData.currentStepStartedAtMs = Date.now();
+        sessionKey = `CPR_AR_${participantId}_${PROTOTYPE}_${Date.now()}`;
+        logEvent('session_started');
+        return true;
+      }
+
+      function closeCurrentStepTiming() {
+        if (!sessionData || !sessionData.currentStepStartedAtMs) return;
+        const elapsed = Math.max(0, Date.now() - sessionData.currentStepStartedAtMs);
+        const index = Math.min(Math.max(currentStep - 1, 0), 12);
+        sessionData.stepDurationsMs[index] += elapsed;
+        sessionData.currentStepStartedAtMs = null;
+      }
+
+      function startCurrentStepTiming() {
+        if (sessionData) sessionData.currentStepStartedAtMs = Date.now();
+      }
+
+      function finalizeSession(completed) {
+        if (!sessionData) return;
+
+        closeCurrentStepTiming();
+
+        if (sessionData.marker.currentLostStartedAtMs !== null) {
+          sessionData.marker.totalLostDurationMs += Date.now() - sessionData.marker.currentLostStartedAtMs;
+          sessionData.marker.currentLostStartedAtMs = null;
+        }
+
+        sessionData.completed = !!completed;
+        sessionData.endedAtISO = new Date().toISOString();
+        sessionData.sessionDurationMs =
+          new Date(sessionData.endedAtISO).getTime() -
+          new Date(sessionData.startedAtISO).getTime();
+
+        persistSession();
+      }
+
+      function safeReset() {
+        if (!sessionData) { window.location.reload(); return; }
+        if (compressionActive) stopCompressionActivity();
+        if (window.PRESTAN) PRESTAN.setActive(false);
+        sessionData.resetCount += 1;
+        logEvent('reset_pressed_return_to_landing');
+        // Preserve the incomplete session as an audit trail, not a successful completion.
+        finalizeSession(false);
+        persistSession();
+        sessionStorage.removeItem('cprParticipantId');
+        window.location.reload();
+      }
+
+
+      function restartToParticipantPage() {
+        if (window.PRESTAN) PRESTAN.setActive(false);
+        sessionStorage.removeItem('cprParticipantId');
+        window.location.reload();
+      }
+
+      function downloadStudyData() {
+        if (!sessionData) {
+          alert('No study data are available in this session.');
+          return;
+        }
+        persistSession();
+        const blob = new Blob([JSON.stringify(sessionData, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const safeId = (sessionData.participantId || 'participant').replace(/[^a-zA-Z0-9_-]/g, '_');
+        a.href = url;
+        a.download = `${safeId}_Prototype_${PROTOTYPE}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function updateMarkerStatus(found) {
+        const el = document.getElementById('marker-status');
+        if (!el) return;
+        el.textContent = found ? 'HIRO MARKER DETECTED' : 'MARKER NOT DETECTED — aim at HIRO';
+        el.style.borderColor = found ? '#4ade80' : '#fbbf24';
+        el.style.color = found ? '#bbf7d0' : '#fef3c7';
+      }
+
+      function attachMarkerLogging() {
+        const marker = document.querySelector('a-marker');
+        if (!marker) return;
+
+        marker.addEventListener('markerFound', () => {
+          updateMarkerStatus(true);
+          if (!sessionData) return;
+          sessionData.marker.foundCount += 1;
+          if (sessionData.marker.currentLostStartedAtMs !== null) {
+            sessionData.marker.totalLostDurationMs += Date.now() - sessionData.marker.currentLostStartedAtMs;
+            sessionData.marker.currentLostStartedAtMs = null;
+          }
+          logEvent('marker_found');
+        });
+
+        marker.addEventListener('markerLost', () => {
+          updateMarkerStatus(false);
+          if (!sessionData) return;
+          sessionData.marker.lostCount += 1;
+          if (sessionData.marker.currentLostStartedAtMs === null) {
+            sessionData.marker.currentLostStartedAtMs = Date.now();
+          }
+          logEvent('marker_lost');
+        });
+      }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        const remembered = sessionStorage.getItem('cprParticipantId');
+        if (remembered) {
+          const idInput = document.getElementById('participant-id');
+          if (idInput) idInput.value = remembered;
+        }
+        attachMarkerLogging();
+      });
+
+      window.addEventListener('beforeunload', () => {
+        persistSession();
+      });
+
+
+    // Track current marker state as well as the common logging counters.
+    window.addEventListener('DOMContentLoaded', () => {
+      const marker = document.querySelector('a-marker');
+      marker.addEventListener('markerFound', () => {
+        isMarkerFound = true;
+        if (sessionData && currentStep === 1) speakText(stepsText[0]);
+      });
+      marker.addEventListener('markerLost', () => { isMarkerFound = false; });
+    });
+
+    function toggleMute() {
+      isMuted = !isMuted;
+      if (sessionData) {
+        sessionData.featureUsage.muteToggleCount += 1;
+        logEvent('mute_toggled', {muted:isMuted});
+      }
+
+      document.getElementById('mute-btn').innerText = isMuted ? '🔇' : '🔊';
+      const detail = document.getElementById('detail-text');
+
+      if (isMuted) {
+        synth.cancel();
+        detail.innerText = stepsText[currentStep - 1];
+        detail.style.display = 'block';
+      } else {
+        detail.style.display = 'none';
+        if (sessionData) speakText(stepsText[currentStep - 1]);
+      }
+    }
+
+    function toggleMinimalist() {
+      isMinimalist = !isMinimalist;
+      if (sessionData) {
+        sessionData.featureUsage.minimalistToggleCount += 1;
+        logEvent('minimalist_toggled', {minimalist:isMinimalist});
+      }
+      document.getElementById('minimalist-btn').innerText = isMinimalist ? '🕶️' : '👁️';
+      document.querySelector('.progress-container').style.display = isMinimalist ? 'none' : 'block';
+      document.getElementById('step-num').style.display = isMinimalist ? 'none' : 'block';
+    }
+
+    function beep(freq,duration) {
+      if (isMuted || !audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(.1,audioCtx.currentTime);
+      osc.start(); osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function speakText(text) {
+      if (isMuted || !text) return;
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US';
+      u.rate = 1.0;
+      synth.speak(u);
+      logEvent('audio_instruction_started', {textStep:currentStep});
+    }
+
+    function initExperience() {
+      if (!beginStudySession()) return;
+      document.getElementById('marker-status').style.display = 'block';
+
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      if (!isMarkerFound) speakText('Please point the camera at the marker.');
+      else speakText(stepsText[0]);
+
+      document.getElementById('landing-page').style.opacity = '0';
+      setTimeout(() => {
+        document.getElementById('landing-page').style.display = 'none';
+        document.getElementById('ar-ui').style.display = 'block';
+        updateEmergencyButton();
+        document.getElementById('mute-btn').style.display = 'block';
+        document.getElementById('minimalist-btn').style.display = 'block';
+      },800);
+    }
+
+    function stopCompressionActivity() {
+      compressionActive = false;
+      if (metronomeTimer) { clearInterval(metronomeTimer); metronomeTimer = null; }
+      const handImg = document.getElementById('hand-image');
+      if (handImg) handImg.setAttribute('animation','enabled:false');
+    }
+
+    function resetTrainingToStart() {
+      stopCompressionActivity();
+      hideCompressionUI();
+      synth.cancel();
+
+      closeCurrentStepTiming();
+      for (let i = 1; i <= 13; i++) {
+        const g = document.getElementById('group' + i);
+        if (g) g.setAttribute('visible', i === 1 ? 'true' : 'false');
+      }
+
+      currentStep = 1;
+      if (window.PRESTAN) PRESTAN.setActive(false);
+      count = 0;
+      compressionTimestamps = [];
+      compressionIntervals = [];
+
+      document.getElementById('step-num').innerText = 'STEP 1 OF 13';
+      document.getElementById('short-title').innerText = shortTitles[0];
+      document.getElementById('detail-text').innerText = stepsText[0];
+      document.getElementById('detail-text').style.display = isMuted ? 'block' : 'none';
+      document.getElementById('progress-bar').style.width = '7.69%';
+      updateEmergencyButton();
+      document.getElementById('start-cpr-btn').style.display = 'none';
+      document.getElementById('next-btn-text').style.display = 'block';
+      document.getElementById('next-btn-text').innerText = 'CONTINUE →';
+      resetCompressionFeedback();
+
+      startCurrentStepTiming();
+      logEvent('training_reset_to_step_1');
+
+      if (!isMuted) speakText(stepsText[0]);
+    }
+
+    function setCompressionLayout(mode) {
+      const ui = document.getElementById('ar-ui');
+      ui.classList.remove('compression-mode','compression-complete-mode');
+      if (mode === 'active') ui.classList.add('compression-mode');
+      if (mode === 'complete') ui.classList.add('compression-mode','compression-complete-mode');
+    }
+
+    function updateEmergencyButton() {
+      const btn = document.getElementById('sos-btn');
+      if (!sessionData) return;
+      // Show the emergency action only when it is contextually relevant.
+      btn.style.display = currentStep === 3 ? 'block' : 'none';
+    }
+
+    function hideCompressionUI() {
+      setCompressionLayout('off');
+      document.getElementById('cpr-counter').classList.remove('compression-complete');
+      document.getElementById('compression-guide').style.display = 'none';
+      document.getElementById('compression-feedback').style.display = 'none';
+      document.getElementById('compression-tap-btn').style.display = 'none';
+      document.getElementById('physical-done-btn').style.display = 'none';
+      document.getElementById('cpr-counter').style.display = 'none';
+    }
+
+    function resetCompressionFeedback() {
+      const feedback = document.getElementById('compression-feedback');
+      const ring = document.getElementById('cpr-ring');
+      feedback.innerText = 'FIND THE RHYTHM';
+      feedback.style.color = '#fff';
+      if (ring) ring.setAttribute('color','#00f2fe');
+    }
+
+    function nextStep() {
+      if (compressionActive) return;
+
+      sessionData.nextPressCount += 1;
+      logEvent('continue_pressed');
+      closeCurrentStepTiming();
+      stopCompressionActivity();
+      hideCompressionUI();
+
+      document.getElementById('next-btn-text').style.display = 'block';
+      document.getElementById('start-cpr-btn').style.display = 'none';
+      document.getElementById('cpr-counter').style.fontSize = '';
+
+      if (currentStep < 13) {
+        document.getElementById('group' + currentStep).setAttribute('visible','false');
+        currentStep++;
+        if (window.PRESTAN) PRESTAN.setActive(currentStep === 10 && physicalMode);
+        document.getElementById('group' + currentStep).setAttribute('visible','true');
+        document.getElementById('step-num').innerText = `STEP ${currentStep} OF 13`;
+        document.getElementById('short-title').innerText = shortTitles[currentStep - 1];
+        document.getElementById('detail-text').innerText = stepsText[currentStep - 1];
+
+        // IMPORTANT: same full medical content as Prototype A. It is delivered as
+        // audio by default; if the participant mutes audio, the same full text is shown.
+        if (isMuted) {
+          document.getElementById('detail-text').style.display = 'block';
+        } else {
+          document.getElementById('detail-text').style.display = 'none';
+          speakText(stepsText[currentStep - 1]);
+        }
+
+        document.getElementById('progress-bar').style.width = (currentStep * 7.69) + '%';
+        updateEmergencyButton();
+        document.getElementById('next-btn-text').innerText = currentStep === 13 ? 'FINISH ✓' : 'CONTINUE →';
+
+        if (currentStep === 10) {
+          document.getElementById('next-btn-text').style.display = 'none';
+          document.getElementById('start-cpr-btn').style.display = 'block';
+          resetCompressionFeedback();
+        }
+        startCurrentStepTiming();
+        logEvent('step_started', {newStep:currentStep});
+      } else {
+        showFinishPage();
+      }
+    }
+
+    function startMetronome() {
+      beep(950,.08);
+      metronomeTimer = setInterval(() => beep(950,.08), METRONOME_INTERVAL);
+    }
+
+    function startCPR() {
+      // Mode fixed before the participant's session for experimental consistency.
+      if (physicalMode && !(window.PRESTAN && PRESTAN.isLive())) {
+        alert('PRESTAN feedback is not connected. Check the PRESTAN_TEST network and the bridge diagnostics before beginning physical CPR.');
+        logEvent('physical_cpr_start_blocked_no_live_device');
+        return;
+      }
+      clearPrestanObservationWindow();
+      physicalSetStartedAtMs = Date.now();
+      sessionData.compressionStartCount += 1;
+      logEvent('compression_started');
+
+      count = 0;
+      compressionTimestamps = [];
+      compressionIntervals = [];
+      compressionActive = true;
+      if (window.PRESTAN) PRESTAN.setActive(physicalMode);
+      setCompressionLayout('active');
+
+      document.getElementById('cpr-counter').classList.remove('compression-complete');
+      document.getElementById('cpr-counter').style.display = 'block';
+      document.getElementById('cpr-counter').style.fontSize = physicalMode ? '1.8rem' : '';
+      document.getElementById('cpr-counter').innerText = physicalMode ? 'PHYSICAL CPR' : '0 / 30';
+      document.getElementById('compression-guide').style.display = 'block';
+      document.getElementById('compression-feedback').style.display = 'block';
+      document.getElementById('start-cpr-btn').style.display = 'none';
+      document.getElementById('next-btn-text').style.display = 'none';
+      document.getElementById('compression-tap-btn').style.display = physicalMode ? 'none' : 'block';
+      document.getElementById('physical-done-btn').style.display = physicalMode ? 'block' : 'none';
+
+      const handImg = document.getElementById('hand-image');
+      if (handImg) handImg.setAttribute('animation','enabled:true');
+      resetCompressionFeedback();
+      if (physicalMode) {
+        const feedback = document.getElementById('compression-feedback');
+        feedback.innerText = 'FOLLOW ORIGINAL PRESTAN LEDs';
+        feedback.style.color = '#fff';
+      }
+      startMetronome();
+    }
+
+    function getRollingCompressionRate() {
+      if (!compressionIntervals.length) return null;
+      const recent = compressionIntervals.slice(-3);
+      const avg = recent.reduce((a,b) => a+b,0) / recent.length;
+      return Math.round(60000 / avg);
+    }
+
+    function updateRateFeedback(rate) {
+      const feedback = document.getElementById('compression-feedback');
+      const ring = document.getElementById('cpr-ring');
+
+      if (!rate) {
+        feedback.innerText = 'FIND THE RHYTHM';
+        feedback.style.color = '#fff';
+        if (ring) ring.setAttribute('color','#00f2fe');
+        return;
+      }
+      if (rate >= TARGET_RATE_MIN && rate <= TARGET_RATE_MAX) {
+        feedback.innerText = `TAP RATE IN TARGET • ${rate}/min`;
+        feedback.style.color = '#00ff88';
+        if (ring) ring.setAttribute('color','#00ff88');
+      } else if (rate < TARGET_RATE_MIN) {
+        feedback.innerText = `TAPS TOO SLOW • ${rate}/min`;
+        feedback.style.color = '#ff4b2b';
+        if (ring) ring.setAttribute('color','#ff4b2b');
+      } else {
+        feedback.innerText = `TAPS TOO FAST • ${rate}/min`;
+        feedback.style.color = '#ff4b2b';
+        if (ring) ring.setAttribute('color','#ff4b2b');
+      }
+    }
+
+    // Physical mode: the available PRESTAN LED-state signals do not expose
+    // a per-compression event or exact compression count. Consequently this
+    // participant action acknowledges completion; it is NOT a sensor count.
+    function finishPhysicalCompressionSet() {
+      if (!compressionActive || !physicalMode) return;
+      const durationMs = physicalSetStartedAtMs ? Date.now() - physicalSetStartedAtMs : null;
+      stopCompressionActivity();
+      document.getElementById('physical-done-btn').style.display = 'none';
+      sessionData.compression = {
+        count: null,
+        countSource: 'not_measured',
+        rateSource: 'not_measured',
+        averageRate: null,
+        targetRatePercent: null,
+        targetRateMin: TARGET_RATE_MIN,
+        targetRateMax: TARGET_RATE_MAX,
+        participantAcknowledgedCompletion: true,
+        physicalSetDurationMs: durationMs,
+        depthMeasured: false,
+        forceMeasured: false
+      };
+      logEvent('physical_set_participant_acknowledged', {
+        durationMs,
+        compressionCountVerified: false,
+        prestanConnectedAtAcknowledgement: !!(window.PRESTAN && PRESTAN.isLive())
+      });
+      const counter = document.getElementById('cpr-counter');
+      counter.innerText = 'PHYSICAL SET REPORTED COMPLETE';
+      counter.style.fontSize = '1.35rem';
+      document.getElementById('next-btn-text').style.display = 'block';
+      document.getElementById('next-btn-text').innerText = 'CONTINUE →';
+      setCompressionLayout('complete');
+      counter.classList.add('compression-complete');
+      const feedback = document.getElementById('compression-feedback');
+      feedback.style.display = 'block';
+      feedback.style.color = '#fff';
+      feedback.innerText = 'Completed by participant; count / BPM not sensor-measured';
+      // Advance immediately and clear physical-compression-only UI.
+      if (window.PRESTAN) PRESTAN.setActive(false);
+      nextStep();
+    }
+
+    function registerCompression() {
+      if (physicalMode) return; // original LEDs do not count separate compressions
+      if (!compressionActive || count >= 30) return;
+      const now = performance.now();
+      const previous = compressionTimestamps[compressionTimestamps.length - 1];
+
+      if (previous && (now - previous) < MIN_TAP_GAP) {
+        sessionData.rejectedCompressionTapCount += 1;
+        logEvent('compression_tap_rejected', {gapMs:now - previous});
+        return;
+      }
+
+      if (previous) compressionIntervals.push(now - previous);
+      compressionTimestamps.push(now);
+      count++;
+      document.getElementById('cpr-counter').innerText = `${count} / 30`;
+      updateRateFeedback(getRollingCompressionRate());
+      logEvent('compression_tap', {count, rollingRate:getRollingCompressionRate()});
+
+      if (count >= 30) finishCompressionSession();
+    }
+
+    function finishCompressionSession() {
+      stopCompressionActivity();
+      document.getElementById('compression-tap-btn').style.display = 'none';
+
+      const averageRate = compressionTimestamps.length > 1
+        ? Math.round(60000 * (compressionTimestamps.length - 1) /
+          (compressionTimestamps[compressionTimestamps.length - 1] - compressionTimestamps[0]))
+        : null;
+
+      const intervalsInTarget = compressionIntervals.filter(interval => {
+        const rate = 60000 / interval;
+        return rate >= TARGET_RATE_MIN && rate <= TARGET_RATE_MAX;
+      }).length;
+
+      const targetRatePercent = compressionIntervals.length
+        ? Math.round((intervalsInTarget / compressionIntervals.length) * 100)
+        : null;
+
+      sessionData.compression = {
+        count,
+        countSource: 'on_screen_taps',
+        rateSource: 'on_screen_taps',
+        averageRate,
+        targetRatePercent,
+        targetRateMin: TARGET_RATE_MIN,
+        targetRateMax: TARGET_RATE_MAX,
+        depthMeasured:false,
+        forceMeasured:false
+      };
+      logEvent('compression_completed', {averageRate,targetRatePercent});
+
+      const feedback = document.getElementById('compression-feedback');
+      const ring = document.getElementById('cpr-ring');
+      const counter = document.getElementById('cpr-counter');
+      setCompressionLayout('complete');
+      counter.classList.add('compression-complete');
+      counter.innerText = '✓ 30 COMPRESSIONS COMPLETE';
+
+      if (averageRate && averageRate >= TARGET_RATE_MIN && averageRate <= TARGET_RATE_MAX) {
+        feedback.innerText = `Average tap rate: ${averageRate}/min • Target ✓`;
+        feedback.style.color = '#00ff88';
+        if (ring) ring.setAttribute('color','#00ff88');
+      } else if (averageRate) {
+        feedback.innerText = `Average tap rate: ${averageRate}/min • Target: 100–120/min`;
+        feedback.style.color = '#ffeb3b';
+      } else {
+        feedback.innerText = 'Compression sequence complete';
+        feedback.style.color = '#fff';
+      }
+
+      document.getElementById('next-btn-text').style.display = 'block';
+      document.getElementById('next-btn-text').innerText = 'CONTINUE →';
+      speakText('Thirty compressions complete. Proceed to the next step.');
+    }
+
+    function showFinishPage() {
+      if (window.PRESTAN) PRESTAN.setActive(false);
+      finalizeSession(true);
+      logEvent('session_completed');
+      document.getElementById('ar-ui').style.display = 'none';
+      document.getElementById('marker-status').style.display = 'none';
+      document.getElementById('sos-btn').style.display = 'none';
+      document.getElementById('mute-btn').style.display = 'none';
+      document.getElementById('minimalist-btn').style.display = 'none';
+      const fp = document.getElementById('finish-page');
+      fp.style.display = 'flex';
+      setTimeout(() => fp.style.opacity = '1',100);
+      speakText('Mission complete. Well done.');
+    }
+
+    // Shared hardware logging: identical in Prototype A and B. Logged only
+    // on connection transitions and LED state changes (not every poll).
+    // Metrics are OBSERVATIONS of monitor LEDs, not numbers of good/bad compressions.
+    let prestanLastSampleAt = null;
+    let prestanLastValues = null;
+    let prestanPreviousValues = null;
+    function observePrestanSample(leds) {
+      if (!sessionData || !physicalMode || !compressionActive || currentStep !== 10) return;
+      const m = sessionData.prestanMetrics;
+      const now = performance.now();
+      const keys = ['red','yellow','green_left','green_right'];
+      if (prestanLastSampleAt !== null && prestanLastValues !== null) {
+        const dt = now - prestanLastSampleAt;
+        if (dt >= 0 && dt <= 1000) {
+          m.observedMs += dt;
+          keys.forEach(key => { if (prestanLastValues[key] === 1) m[key].observedOnMs += dt; });
+        } else { m.connectionGaps += 1; }
+      }
+      keys.forEach(key => {
+        if (leds[key] === 1 && prestanPreviousValues !== null && prestanPreviousValues[key] === 0)
+          m[key].observedOnActivations += 1;
+      });
+      prestanPreviousValues = {...leds};
+      prestanLastValues = {...leds};
+      prestanLastSampleAt = now;
+      m.observedSamples++;
+    }
+    function clearPrestanObservationWindow() {
+      prestanLastSampleAt = null;
+      prestanLastValues = null;
+      prestanPreviousValues = null;
+    }
+    window.prestanStudyHook = function(type, detail) {
+      if (!sessionData) return;
+      const hw = sessionData.prestan;
+      if (type === 'prestan_sample') {
+        observePrestanSample(detail.leds);
+        hw.samplesReceived++;
+        hw.lastKnownLEDs = detail.leds;
+        return; // avoid writing localStorage every 150 ms
+      }
+      if (type === 'prestan_connected') {
+        hw.source = detail.source || 'unknown';
+        if (!hw.connectedAtISO) hw.connectedAtISO = new Date().toISOString();
+      }
+      if (type === 'prestan_disconnected') { hw.disconnectCount++; clearPrestanObservationWindow(); }
+      if (type === 'prestan_led_change') {
+        hw.stateTransitions++;
+        hw.lastKnownLEDs = detail.leds;
+      }
+      logEvent(type, detail);
+    };
+  </script>
+  <script src="prestan-integration.js"></script>
+</body>
+</html>
